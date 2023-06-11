@@ -57,6 +57,11 @@ impl ResponseError for TaskError {
     }
 }
 
+#[get("/")]
+pub async fn health_check() -> HttpResponse {
+    HttpResponse::Ok().finish()
+}
+
 #[get("/task/{task_global_id}")]
 pub async fn get_task(
     task_identifier: Path<TaskIdentifier>, 
