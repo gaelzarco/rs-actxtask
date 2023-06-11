@@ -11,7 +11,11 @@ use actix_web::{
 use serde::{ Serialize, Deserialize };
 use derive_more::{ Display };
 
+pub struct TaskIdentifier {
+    task_global_id: String
+}
+
 #[get("/task/{task_global_id}")]
-pub async fn get_task() -> Json<String> {
-    return Json(String::from("Hello, world!"))
+pub async fn get_task(task_identifier: Path<TaskIdentifier>, body: Json<Struct>) -> Json<String> {
+    return Json(task_identifier.into_inner().task_global_id)
 }
