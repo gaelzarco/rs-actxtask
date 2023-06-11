@@ -1,3 +1,5 @@
+use std::result;
+
 use crate::model::task::Task;
 use crate::model::task::TaskState;
 use crate::repository::ddb::DDBRepository;
@@ -68,5 +70,32 @@ pub async fn get_task(
     match task {
         Some(task) => Ok(Json(task)),
         None => Err(TaskError::TaskNotFound)
+    }
+}
+
+async fn state_transition(
+    ddb_repo: Data<DDBRepository>,
+    task_global_id: String,
+    new_state: TaskState,
+    result_file: Option<String>
+) -> Result<Json<TaskIdentifier>, TaskError> {
+    let mut task = match ddb_repo.get_task(
+        task_global_id
+    ).await {
+        Some(task) => task,
+        None => return Err(TaskError::TaskNotFound)
+    };
+
+    if !task.can_transition_to(&new_state) {
+        return Err(TaskError::BadTaskRequest);
+    }
+
+    task.state = new_state;
+    task.result = result_file;
+
+    let task_identifier = task.get_global_id();
+    match ddb_repo.put_task(task).await {
+        Ok(()) => Ok(Json(TaskIdentifier { task_global_id: task_identifier })),
+        Err(_) => Err(TaskError::TaskUpdateFailure)
     }
 }
