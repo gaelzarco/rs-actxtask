@@ -17,6 +17,7 @@ use actix_web::{
 use serde::{ Serialize, Deserialize };
 use derive_more::{ Display };
 
+#[derive(Deserialize, Serialize)]
 pub struct TaskIdentifier {
     task_global_id: String
 }
@@ -73,6 +74,24 @@ pub async fn get_task(
     }
 }
 
+#[post("/task")]
+pub async fn submit_task(
+    ddb_repo: Data<DDBRepository>,
+    request: Json<SubmitTaskRequest>
+) -> Result<Json<TaskIdentifier>, TaskError> {
+    let task = Task::new(
+        request.user_id.clone(),
+        request.task_type.clone(),
+        request.source_file.clone()
+    );
+
+    let task_identifier: String = task.get_global_id();
+    match ddb_repo.put_task(task).await {
+        Ok(()) => Ok(Json(TaskIdentifier { task_global_id: task_identifier })),
+        Err(_) => Err(TaskError::TaskCreationFailure)
+    }
+}
+
 async fn state_transition(
     ddb_repo: Data<DDBRepository>,
     task_global_id: String,
@@ -91,11 +110,38 @@ async fn state_transition(
     }
 
     task.state = new_state;
-    task.result = result_file;
+    task.result_file = result_file;
 
     let task_identifier = task.get_global_id();
     match ddb_repo.put_task(task).await {
         Ok(()) => Ok(Json(TaskIdentifier { task_global_id: task_identifier })),
         Err(_) => Err(TaskError::TaskUpdateFailure)
     }
+}
+
+#[put("/task/{task_global_id}/start")]
+pub async fn start_task(
+    ddb_repo: Data<DDBRepository>,
+    task_identifier: Path<TaskIdentifier>
+) -> Result<Json<TaskIdentifier>, TaskError> {
+    state_transition(
+        ddb_repo,
+        task_identifier.into_inner().task_global_id,
+        TaskState::InProgress,
+        None
+    ).await
+}
+
+#[put("/task/{task_global_id}/complete")]
+pub async fn complete_task(
+    ddb_repo: Data<DDBRepository>,
+    task_identifier: Path<TaskIdentifier>,
+    completion_request: Json<TaskCompletionRequest>
+) -> Result<Json<TaskIdentifier>, TaskError> {
+    state_transition(
+        ddb_repo,
+        task_identifier.into_inner().task_global_id,
+        TaskState::InProgress,
+        Some(completion_request.result_file.clone())
+    ).await
 }
