@@ -65,7 +65,8 @@ impl DDBRepository {
             .item("sK", AttributeValue::S(String::from(task.task_uuid)))
             .item("task_type", AttributeValue::S(String::from(task.task_type)))
             .item("state", AttributeValue::S(task.state.to_string()))
-            .item("source_file", AttributeValue::S(String::from(task.source_file)));
+            .item("source_file", AttributeValue::S(String::from(task.source_file)))
+            .item("admin".to_string(), AttributeValue::S(String::from("admin")));
         
         if let Some(result_file) = task.result_file {
             request = request.item("result_file", AttributeValue::S(String::from(result_file)));
